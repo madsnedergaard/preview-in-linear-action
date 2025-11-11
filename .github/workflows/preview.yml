@@ -1,0 +1,18 @@
+name: Preview in Linear
+on: issue_comment
+
+jobs:
+    preview-in-linear:
+        if: ${{ github.event.issue.pull_request }}
+        name: Preview in Linear
+        runs-on: ubuntu-latest
+        steps:
+            - name: test
+            - run: echo PR is $NUMBER
+              env:
+                  NUMBER: ${{ github.event.issue.number }}
+            - name: Test Preview in Linear action
+                uses: ./
+                with:
+                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
