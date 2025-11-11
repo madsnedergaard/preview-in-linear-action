@@ -1,0 +1,22 @@
+name: Preview in Linear
+author: 'Mads Nedergaard <github@madsnedergaard.dk>'
+description: >
+    Make it easy to access your previews in Linear with this GitHub Action.
+
+runs:
+    using: 'node20'
+    main: 'dist/index.js'
+
+branding:
+    icon: 'zap'
+    color: 'green'
+
+inputs:
+    GITHUB_TOKEN:
+        description: 'GitHub access token with Repo scope'
+        required: true
+        default: ${{ github.token }}
+    LINEAR_API_KEY:
+        description: 'Linear API key'
+        required: true
+        default: ${{ secrets.LINEAR_API_KEY }}
