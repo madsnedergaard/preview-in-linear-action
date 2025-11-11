@@ -8,5 +8,9 @@
     },
     "peerDependencies": {
         "typescript": "^5"
+    },
+    "dependencies": {
+        "@actions/github": "^6.0.1",
+        "@linear/sdk": "^63.3.0"
     }
 }
