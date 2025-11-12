@@ -1,8 +1,18 @@
 import github, { context } from '@actions/github';
 
-export async function getClient() {
+async function getClient() {
     const API_TOKEN = process.env.GITHUB_TOKEN ?? '';
     return github.getOctokit(API_TOKEN);
+}
+
+export async function getGitRef(ghIssueNumber: number) {
+    const octokit = await getClient();
+    const pull = await octokit.rest.pulls.get({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        pull_number: ghIssueNumber,
+    });
+    return pull.data.head.ref;
 }
 
 export async function getDeployment(ref: string) {
@@ -70,10 +80,14 @@ export async function findLinearIdentifierInComment(ghIssueNumber: number) {
     for (const comment of comments.data) {
         if (comment.user?.login === 'linear[bot]') {
             // Body example: <p><a href=\"https://linear.app/preview-test/issue/PRE-7/add-functionality-for-detecting-a-linear-identifier\">PRE-7 Add functionality for detecting a Linear identifier</a></p>
-            const link = comment.body?.match(/https:\/\/linear\.app\/[^"]+/)?.[0];
+            const link = comment.body?.match(
+                /https:\/\/linear\.app\/[^"]+/,
+            )?.[0];
 
             if (link) {
-                const parts = link.replace('https://linear.app/', '').split('/');
+                const parts = link
+                    .replace('https://linear.app/', '')
+                    .split('/');
                 const [_team, _, identifier, _title] = parts;
                 return identifier as string;
             } else {
