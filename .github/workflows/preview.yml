@@ -6,6 +6,8 @@ jobs:
         if: ${{ github.event.issue.pull_request }}
         name: Preview in Linear
         runs-on: ubuntu-latest
+        env:
+            NODE_OPTIONS: --enable-source-maps
         steps:
             - name: Checkout
               uses: actions/checkout@v4
