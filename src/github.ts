@@ -33,17 +33,22 @@ export async function getDeployment(ref: string) {
     const deployment = deployments.data[0];
     if (!deployment) {
         console.error('No deployment found for the ref');
-        throw new Error('No deployment found for the ref');
+        return null;
     }
     if (deployments.data.length > 1) {
         console.error('Multiple deployments found for the same ref');
-        throw new Error('Multiple deployments found for the same ref');
+        return null;
     }
     return deployment;
 }
 
-export async function getDeploymentData(ref: string) {
-    const deployment = await getDeployment(ref);
+export async function getGitHubDeploymentData(ghIssueNumber: number) {
+    const gitSha = await getGitSha(ghIssueNumber);
+    const deployment = await getDeployment(gitSha);
+    if (!deployment) {
+        console.error('No deployment found for the ref');
+        return null;
+    }
     const deploymentId = deployment.id;
 
     const octokit = await getClient();
@@ -56,29 +61,33 @@ export async function getDeploymentData(ref: string) {
 
     if (!status) {
         console.error('No deployment status found for the deployment');
-        throw new Error('No deployment status found for the deployment');
+        return null;
     }
     if (status.state !== 'success') {
         console.error('Deployment status is not success');
-        throw new Error('Deployment status is not success');
+        return null;
     }
     if (!status.environment_url) {
         console.error('No environment URL found for the deployment');
-        throw new Error('No environment URL found for the deployment');
+        return null;
     }
     return { url: status.environment_url, avatar: status.creator?.avatar_url };
 }
 
-export async function findLinearIdentifierInComment(ghIssueNumber: number) {
-    // Find the relevant Linear issue comment inside the pull request from the bot
+export async function getComments(ghIssueNumber: number) {
     const octokit = await getClient();
     const comments = await octokit.rest.issues.listComments({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: ghIssueNumber,
     });
+    return comments.data;
+}
 
-    for (const comment of comments.data) {
+export async function findLinearIdentifierInComment(comments: any[]) {
+    // Find the relevant Linear issue comment inside the pull request from the bot
+
+    for (const comment of comments) {
         if (comment.user?.login === 'linear[bot]') {
             // Body example: <p><a href=\"https://linear.app/preview-test/issue/PRE-7/add-functionality-for-detecting-a-linear-identifier\">PRE-7 Add functionality for detecting a Linear identifier</a></p>
             const link = comment.body?.match(/https:\/\/linear\.app\/[^"]+/)?.[0];
@@ -89,10 +98,10 @@ export async function findLinearIdentifierInComment(ghIssueNumber: number) {
                 return identifier as string;
             } else {
                 console.error('No link found in the comment');
-                throw new Error('No link found in the comment');
+                return null;
             }
         }
     }
     console.error('No linear identifier found in the comment');
-    throw new Error('No linear identifier found in the comment');
+    return null;
 }

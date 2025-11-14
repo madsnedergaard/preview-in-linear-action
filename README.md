@@ -17,7 +17,7 @@
 ```yaml
 name: Preview Links in Linear
 # Run action when a new comment is added to a pull request (as we are expecting a Linear-bot comment with a link to the Linear issue)
-on: issue_comment
+on: [issue_comment, deployment_status]
 
 jobs:
     preview-links-in-linear:
@@ -31,6 +31,7 @@ jobs:
             - name: Attach preview link to Linear issue
               uses: madsnedergaard/preview-link-in-linear@main
               with:
+                  provider: vercel # or netlify, cloudflare, github-deployments
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
 ```

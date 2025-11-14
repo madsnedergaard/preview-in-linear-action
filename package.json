@@ -16,7 +16,8 @@
     "scripts": {
         "build": "ncc build src/index.ts",
         "dev": "bun run src/index.ts",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "test": "bun test"
     },
     "devDependencies": {
         "@types/bun": "latest",
