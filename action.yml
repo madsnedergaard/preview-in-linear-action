@@ -12,6 +12,9 @@ branding:
     color: 'green'
 
 inputs:
+    provider:
+        description: 'Provider to use for the preview (vercel, netlify, cloudflare, github-deployments)'
+        required: true
     GITHUB_TOKEN:
         description: 'GitHub access token with Repo scope'
         required: true
