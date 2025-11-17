@@ -1,4 +1,4 @@
-import { info } from '@actions/core';
+import { debug, info } from '@actions/core';
 import { getGitHubDeploymentData } from './github';
 
 const providers = {
@@ -17,6 +17,34 @@ const providers = {
 };
 
 export const supportedProviders = ['vercel', 'netlify', 'cloudflare', 'github-deployments', 'fly'] as const;
+
+export async function detectProvider(
+    comments: any[],
+    ghIssueNumber: number,
+): Promise<(typeof supportedProviders)[number] | null> {
+    // Check comment-based providers first (most reliable)
+    for (const comment of comments) {
+        const author = comment.user?.login;
+        if (author === 'netlify[bot]') {
+            return 'netlify';
+        }
+        if (author === 'cloudflare-workers-and-pages[bot]') {
+            return 'cloudflare';
+        }
+        if (author === 'vercel[bot]') {
+            return 'vercel';
+        }
+    }
+
+    // Check GitHub deployments (covers vercel, github-deployments, and fly)
+    const deploymentData = await getGitHubDeploymentData(ghIssueNumber);
+    if (deploymentData) {
+        debug('Auto-detected provider: github-deployments (from GitHub deployment API)');
+        return 'github-deployments';
+    }
+
+    return null;
+}
 
 export async function getPreviewDataByProvider(
     provider: (typeof supportedProviders)[number],

@@ -31875,6 +31875,28 @@ const providers = {
     },
 };
 const supportedProviders = ['vercel', 'netlify', 'cloudflare', 'github-deployments', 'fly'];
+async function detectProvider(comments, ghIssueNumber) {
+    // Check comment-based providers first (most reliable)
+    for (const comment of comments) {
+        const author = comment.user?.login;
+        if (author === 'netlify[bot]') {
+            return 'netlify';
+        }
+        if (author === 'cloudflare-workers-and-pages[bot]') {
+            return 'cloudflare';
+        }
+        if (author === 'vercel[bot]') {
+            return 'vercel';
+        }
+    }
+    // Check GitHub deployments (covers vercel, github-deployments, and fly)
+    const deploymentData = await getGitHubDeploymentData(ghIssueNumber);
+    if (deploymentData) {
+        (0,core.debug)('Auto-detected provider: github-deployments (from GitHub deployment API)');
+        return 'github-deployments';
+    }
+    return null;
+}
 async function getPreviewDataByProvider(provider, ghIssueNumber, comments) {
     if (['github-deployments', 'vercel', 'fly'].includes(provider)) {
         return await getGitHubDeploymentData(ghIssueNumber);
@@ -31913,18 +31935,32 @@ async function getPreviewDataFromComments(comments, provider) {
 
 async function main() {
     (0,core.debug)(`Starting with context: ${JSON.stringify(github.context, null, 2)}`);
-    const provider = (0,core.getInput)('provider', { required: true });
-    if (!supportedProviders.includes(provider)) {
-        throw new Error(`Unsupported provider: ${provider}`);
-    }
-    (0,core.info)(`Finding preview link from provider: ${provider}`);
     // Only run if the comment is on a pull request
     if (!github.context.payload.issue?.pull_request) {
+        // TODO: What about listening on deployment_status then? Can we expand this check to be
+        // "if on:issue_comment" + "no payload.pull_request"?
         (0,core.info)('Skipping: comment is not on a pull request');
         return;
     }
     const ghIssueNumber = github.context.issue.number;
     const comments = await getComments(ghIssueNumber);
+    // Get provider from input or auto-detect
+    let provider = (0,core.getInput)('provider');
+    if (!provider) {
+        (0,core.debug)('No provider specified, attempting auto-detection...');
+        const detectedProvider = await detectProvider(comments, ghIssueNumber);
+        if (!detectedProvider) {
+            throw new Error('Could not auto-detect provider. Please specify the provider input.');
+        }
+        (0,core.debug)(`Auto-detected provider: ${detectedProvider}`);
+        provider = detectedProvider;
+    }
+    else {
+        if (!supportedProviders.includes(provider)) {
+            throw new Error(`Unsupported provider: ${provider}`);
+        }
+        (0,core.debug)(`Using provider: ${provider}`);
+    }
     const linearIdentifier = await findLinearIdentifierInComment(comments);
     if (!linearIdentifier) {
         (0,core.info)('Skipping: linear identifier not found');

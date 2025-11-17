@@ -13,8 +13,8 @@ branding:
 
 inputs:
     provider:
-        description: 'Provider to use for the preview (vercel, netlify, cloudflare, github-deployments)'
-        required: true
+        description: 'Provider to use for the preview (vercel, netlify, cloudflare, github-deployments, fly). If not provided, will be auto-detected.'
+        required: false
     GITHUB_TOKEN:
         description: 'GitHub access token with Repo scope'
         required: true
