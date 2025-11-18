@@ -31766,10 +31766,11 @@ async function getPullRequest(ghIssueNumber) {
     (0,core.debug)(`Pull data: ${JSON.stringify(pull.data)}`);
     return pull.data;
 }
-async function getGitSha(ghIssueNumber) {
-    (0,core.debug)(`Getting git ref for issue number: ${ghIssueNumber}`);
-    const pull = await getPullRequest(ghIssueNumber);
+function getGitSha(pull) {
     return pull.head.sha;
+}
+function getPullRequestBranchName(pull) {
+    return pull.head.ref;
 }
 async function getDeployment(ref) {
     const octokit = await getClient();
@@ -31777,12 +31778,9 @@ async function getDeployment(ref) {
     const deployments = await octokit.rest.repos.listDeployments({
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
-        ref,
-        // TODO: Should we add this filter to ensure we dont get a production deployment link?
-        // Given that a new PR merge triggers a new SHA, it might not be needed
-        // environment: 'preview',
+        ref, // SHA or branch name
     });
-    (0,core.debug)(`Deployments: ${JSON.stringify(deployments.data)}`);
+    (0,core.debug)(`Deployments: ${JSON.stringify(deployments.data, null, 2)}`);
     const deployment = deployments.data[0];
     if (!deployment) {
         console.error('No deployment found for the ref');
@@ -31794,11 +31792,22 @@ async function getDeployment(ref) {
     }
     return deployment;
 }
+/**
+ * Look up by both SHA and branch name as both can be used as a ref
+ */
 async function getGitHubDeploymentData(ghIssueNumber) {
-    const gitSha = await getGitSha(ghIssueNumber);
-    const deployment = await getDeployment(gitSha);
+    const pull = await getPullRequest(ghIssueNumber);
+    const gitSha = getGitSha(pull);
+    const branchName = getPullRequestBranchName(pull);
+    let deployment = null;
+    // First try to get the deployment by SHA
+    deployment = await getDeployment(gitSha);
     if (!deployment) {
-        console.error('No deployment found for the ref');
+        // If no deployment found by SHA, try to get the deployment by branch name
+        deployment = await getDeployment(branchName);
+    }
+    if (!deployment) {
+        console.error(`No deployment found for ${gitSha} (SHA) or ${branchName} (branch name)`);
         return null;
     }
     const deploymentId = deployment.id;

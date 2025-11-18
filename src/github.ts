@@ -6,6 +6,9 @@ export interface PullRequestInfo {
     title: string | undefined;
 }
 
+type Deployment = Awaited<ReturnType<typeof getDeployment>>;
+type PullRequest = Awaited<ReturnType<typeof getPullRequest>>;
+
 export function getPullRequestInfoFromEvent(): PullRequestInfo | null {
     // Handle different event types
     if (context.eventName === 'issue_comment') {
@@ -51,10 +54,12 @@ export async function getPullRequest(ghIssueNumber: number) {
     return pull.data;
 }
 
-export async function getGitSha(ghIssueNumber: number) {
-    debug(`Getting git ref for issue number: ${ghIssueNumber}`);
-    const pull = await getPullRequest(ghIssueNumber);
+export function getGitSha(pull: PullRequest): string {
     return pull.head.sha;
+}
+
+export function getPullRequestBranchName(pull: PullRequest): string {
+    return pull.head.ref;
 }
 
 export async function getDeployment(ref: string) {
@@ -63,12 +68,9 @@ export async function getDeployment(ref: string) {
     const deployments = await octokit.rest.repos.listDeployments({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        ref,
-        // TODO: Should we add this filter to ensure we dont get a production deployment link?
-        // Given that a new PR merge triggers a new SHA, it might not be needed
-        // environment: 'preview',
+        ref, // SHA or branch name
     });
-    debug(`Deployments: ${JSON.stringify(deployments.data)}`);
+    debug(`Deployments: ${JSON.stringify(deployments.data, null, 2)}`);
     const deployment = deployments.data[0];
     if (!deployment) {
         console.error('No deployment found for the ref');
@@ -81,13 +83,25 @@ export async function getDeployment(ref: string) {
     return deployment;
 }
 
+/**
+ * Look up by both SHA and branch name as both can be used as a ref
+ */
 export async function getGitHubDeploymentData(ghIssueNumber: number) {
-    const gitSha = await getGitSha(ghIssueNumber);
-    const deployment = await getDeployment(gitSha);
+    const pull = await getPullRequest(ghIssueNumber);
+    const gitSha = getGitSha(pull);
+    const branchName = getPullRequestBranchName(pull);
+    let deployment: Deployment | null = null;
+    // First try to get the deployment by SHA
+    deployment = await getDeployment(gitSha);
     if (!deployment) {
-        console.error('No deployment found for the ref');
+        // If no deployment found by SHA, try to get the deployment by branch name
+        deployment = await getDeployment(branchName);
+    }
+    if (!deployment) {
+        console.error(`No deployment found for ${gitSha} (SHA) or ${branchName} (branch name)`);
         return null;
     }
+
     const deploymentId = deployment.id;
 
     const octokit = await getClient();
